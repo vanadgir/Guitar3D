@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guitar3D</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    #canvas-container {
+      background-color: #313338;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.sound.js"></script>
+  <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+</head>
+
+<body>
+  <div id="canvas-container"></div>
+  <script src="CoolShape.js"></script>
+  <script>
+    // globals
+    let canvas;
+
+    let guitar;
+    let fft;
+    let amp;
+
+    let lowEnergy, midEnergy, highEnergy, trebleEnergy;
+
+    let center;
+    let jitterSpeed = 1;
+
+    let shapes = [];
+
+    // preload assets
+    function preload() { }
+
+    // setup function
+    function setup() {
+      canvas = createCanvas(windowWidth, windowHeight, WEBGL);
+      canvas.parent("canvas-container");
+      canvas.mousePressed(userStartAudio);
+      background("#313338");
+      colorMode(HSB);
+
+      guitar = new p5.AudioIn();
+      guitar.start(); // begin listening
+      guitar.connect(); // connect to output
+
+      fft = new p5.FFT();
+      fft.setInput(guitar);
+
+      amp = new p5.Amplitude();
+      amp.setInput(guitar);
+
+      for (let i = 0; i < 20; ++i) {
+        const shape = new CoolShape(
+          createVector(
+            (-width / 2) + (i % 4) * 400,
+            (-height / 2) + (i / 4) * 400
+          ),
+          i
+        );
+        shapes.push(shape);
+      }
+
+      noStroke();
+      frameRate(144);
+    }
+
+    // draw loop
+    function draw() {
+      background("#313338");
+
+      // lights();
+      //ambientLight(100);
+      directionalLight(45, 255, 255, -1, 0, -1);
+      directionalLight(255, 255, 255, 1, 0, -0.5);
+      //pointLight(255, 255, 255, 0, 0, 100);
+
+      let spectrum = fft.analyze();
+      let centroid = fft.getCentroid();
+      let loudness = amp.getLevel();
+
+      lowEnergy = constrain(
+        map(fft.getEnergy("lowMid"), 50, 255, 0, 1),
+        0,
+        1
+      );
+      midEnergy = constrain(map(fft.getEnergy("mid"), 50, 255, 0, 1), 0, 1);
+      highEnergy = constrain(
+        map(fft.getEnergy("highMid"), 50, 255, 0, 1),
+        0,
+        1
+      );
+      trebleEnergy = constrain(
+        map(fft.getEnergy("treble"), 50, 255, 0, 1),
+        0,
+        1
+      );
+
+
+      for (let shape of shapes) {
+        shape.update(
+          loudness,
+          centroid,
+          lowEnergy,
+          midEnergy,
+          highEnergy,
+          trebleEnergy
+        );
+        shape.draw();
+      }
+
+      // quad(
+      //   -width / 2 + lowEnergy,
+      //   -height / 2 + lowEnergy,
+      //   width / 2 + lowEnergy,
+      //   height / 2 + lowEnergy,
+      //   -width / 2 - lowEnergy,
+      //   0,
+      //   -width / 2 + lowEnergy,
+      //   height / 2 - lowEnergy
+      // );
+    }
+  </script>
+</body>
+
+</html>
